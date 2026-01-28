@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 LeNet-5-style model on MNIST (28×28 grayscale), mirrored from the provided Jupyter cells,
 packaged as a non-interactive script for Azure ML command jobs.
@@ -13,21 +12,21 @@ Key choices (matching notebook cells):
 - Training: batch_size=128, epochs=100, validation_split=0.1, EarlyStopping(patience=3, restore_best_weights=True).
 - Artifacts: training curves SVG (same filename used in notebook, but under outputs/),
              metrics.json, classification_report.txt, confusion_matrix.json.
+- Azure ML & Colab compatible
+- CPU / single-GPU / multi-GPU (MirroredStrategy)
+- MLflow tracking (metrics, artifacts, final model)
 
-This script avoids interactive plotting (no plt.show) and writes artifacts into the Azure ML
-"outputs" folder so they are captured by the job.
 """
 
 import os
 import json
 import argparse
 from datetime import datetime
-
-# Headless plotting
+import mlflow
+import mlflow.tensorflow
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
@@ -37,161 +36,189 @@ from sklearn import metrics
 # ---------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------
-
 def ensure_out_dir(path: str = "outputs") -> str:
     os.makedirs(path, exist_ok=True)
     return path
 
 
 def build_lenet5_model() -> keras.Model:
-    """Construct the LeNet-5-style model exactly as in the notebook cells."""
-    num_classes = 10
-    model = keras.Sequential([
-        layers.Input(shape=(28, 28, 1)),
-        layers.Rescaling(1./255),
-        # C1
-        layers.Conv2D(6, kernel_size=(5, 5), padding="same", activation="relu"),
-        layers.AveragePooling2D(pool_size=(2, 2)),
-        # C3
-        layers.Conv2D(16, kernel_size=(5, 5), padding="same", activation="relu"),
-        layers.AveragePooling2D(pool_size=(2, 2)),
-        # Head
-        layers.Flatten(),
-        layers.Dense(120, activation="relu"),
-        layers.Dense(84,  activation="relu"),
-        layers.Dense(num_classes, activation="softmax"),
-    ], name="LeNet5_MNIST")
+    """LeNet-5 style CNN"""
+    model = keras.Sequential(
+        [
+            layers.Input(shape=(28, 28, 1)),
+            layers.Rescaling(1.0 / 255),
+
+            layers.Conv2D(6, (5, 5), padding="same", activation="relu"),
+            layers.AveragePooling2D(pool_size=(2, 2)),
+
+            layers.Conv2D(16, (5, 5), padding="same", activation="relu"),
+            layers.AveragePooling2D(pool_size=(2, 2)),
+
+            layers.Flatten(),
+            layers.Dense(120, activation="relu"),
+            layers.Dense(84, activation="relu"),
+            layers.Dense(10, activation="softmax"),
+        ],
+        name="LeNet5_MNIST",
+    )
     return model
 
 
-def save_training_plots(history: keras.callbacks.History, out_dir: str) -> None:
-    """Mirror the notebook plots and save to SVG under outputs/.
-    Note: Filename mirrors the notebook ('lenet5_on_cifar-10.svg') to keep parity.
-    """
-    fig = plt.figure(1, figsize=(16, 6))
-    # Accuracy subplot
+def save_training_plots(history, out_dir):
+    fig = plt.figure(figsize=(16, 6))
+
     plt.subplot(1, 2, 1)
-    plt.title('Accuracy', fontsize=16)
-    plt.plot(history.history.get('accuracy', []), label="Trainset", c='blue')
-    plt.plot(history.history.get('val_accuracy', []), label="Testset", c='blue', ls='--')
-    plt.ylabel('Accuracy', fontsize=12)
-    plt.xlabel('Epoch', fontsize=12)
-    plt.legend(loc='best', fontsize=12)
-    # Loss subplot
+    plt.title("Accuracy")
+    plt.plot(history.history["accuracy"], label="train")
+    if "val_accuracy" in history.history:
+        plt.plot(history.history["val_accuracy"], label="val", linestyle="--")
+    plt.legend()
+    plt.grid(True)
+
     plt.subplot(1, 2, 2)
-    plt.plot(history.history.get('loss', []), label="Trainset", c='k')
-    plt.plot(history.history.get('val_loss', []), label="Testset", c='k', ls='--')
-    plt.title('Loss', fontsize=16)
-    plt.ylabel('Loss', fontsize=12)
-    plt.xlabel('Epoch', fontsize=12)
-    plt.legend(loc='best', fontsize=12)
-    # Save (same filename as notebook, placed under outputs/)
-    plt.savefig(os.path.join(out_dir, "lenet5_on_cifar-10.svg"),
-                format="svg", transparent=True, bbox_inches='tight')
+    plt.title("Loss")
+    plt.plot(history.history["loss"], label="train")
+    if "val_loss" in history.history:
+        plt.plot(history.history["val_loss"], label="val", linestyle="--")
+    plt.legend()
+    plt.grid(True)
+
+    path = os.path.join(out_dir, "lenet5_training_curves.svg")
+    plt.savefig(path, format="svg", bbox_inches="tight")
     plt.close(fig)
 
+    return path
+
 
 # ---------------------------------------------------------------------
-# Training routine
+# Training
 # ---------------------------------------------------------------------
-
 def train(args: argparse.Namespace) -> None:
     out_dir = ensure_out_dir(args.output_dir)
 
-    # Mirror notebook seed behavior
     np.random.seed(args.seed)
     tf.random.set_seed(args.seed)
 
-    # Load MNIST
-    (X_train, y_train), (X_test, y_test) = keras.datasets.mnist.load_data()
-    print("X_train", X_train.shape)
-    print("y_train", y_train.shape)
-    print("X_test", X_test.shape)
-    print("y_test", y_test.shape)
+    # ---- TF + CUDA 12 stability fix ----
+    tf.config.optimizer.set_experimental_options({
+        "layout_optimizer": False
+    })
 
-    # Expand channel dimension: (28,28) -> (28,28,1)
-    X_train = X_train[..., np.newaxis]
-    X_test  = X_test[..., np.newaxis]
+    # ---- GPU detection ----
+    gpus = tf.config.list_physical_devices("GPU")
+    num_gpus = len(gpus)
+    print(f"Detected {num_gpus} GPU(s)")
 
-    # Build and compile model
-    model = build_lenet5_model()
-    model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=args.lr),
-        loss=keras.losses.SparseCategoricalCrossentropy(),
-        metrics=["accuracy"],
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+
+    # ---- Distribution strategy (0/1/N GPUs safe) ----
+    strategy = tf.distribute.MirroredStrategy()
+    print("Using strategy:", strategy.__class__.__name__)
+    print("Replicas:", strategy.num_replicas_in_sync)
+
+    # ---- MLflow (disable param autolog to avoid conflicts) ----
+    mlflow.tensorflow.autolog(
+        log_models=False,
+        log_input_examples=False,
+        log_datasets=False,
     )
 
-    # Summary
-    model.summary()
+    with mlflow.start_run():
+        # ---- Log params manually ----
+        mlflow.log_params({
+            "epochs": args.epochs,
+            "batch_size": args.batch_size,
+            "effective_batch_size": args.batch_size * strategy.num_replicas_in_sync,
+            "lr": args.lr,
+            "val_split": args.val_split,
+            "num_gpus": num_gpus,
+            "seed": args.seed,
+        })
 
-    # Callbacks (mirror notebook: EarlyStopping only)
-    callbacks = [
-        keras.callbacks.EarlyStopping(patience=3, restore_best_weights=True)
-    ]
+        # ---- Load MNIST ----
+        (X_train, y_train), (X_test, y_test) = keras.datasets.mnist.load_data()
 
-    # Train (mirror notebook settings)
-    start = datetime.now()
-    history = model.fit(
-        X_train, y_train.ravel(),
-        batch_size=args.batch_size,
-        epochs=args.epochs,
-        validation_split=args.val_split,
-        verbose=2,
-        callbacks=callbacks,
-    )
-    elapsed = int((datetime.now() - start).total_seconds())
-    print(f"Training elapsed: {elapsed}s")
+        X_train = X_train[..., np.newaxis]
+        X_test = X_test[..., np.newaxis]
 
-    # Save plots
-    save_training_plots(history, out_dir)
+        # ---- Build model inside strategy ----
+        with strategy.scope():
+            model = build_lenet5_model()
+            model.compile(
+                optimizer=keras.optimizers.Adam(learning_rate=args.lr),
+                loss=keras.losses.SparseCategoricalCrossentropy(),
+                metrics=["accuracy"],
+            )
 
-    # Evaluate
-    test_loss, test_acc = model.evaluate(X_test, y_test.ravel(), verbose=0)
-    print(f"Test loss: {test_loss:.4f}")
-    print(f"Test accuracy: {test_acc:.4f}")
+        callbacks = [
+            keras.callbacks.EarlyStopping(
+                patience=3,
+                restore_best_weights=True
+            )
+        ]
 
-    # Predictions & sklearn metrics
-    y_pred_probs = model.predict(X_test, verbose=0)
-    y_pred = np.argmax(y_pred_probs, axis=1)
+        start = datetime.now()
+        history = model.fit(
+            X_train,
+            y_train,
+            batch_size=args.batch_size,
+            epochs=args.epochs,
+            validation_split=args.val_split,
+            callbacks=callbacks,
+            verbose=2,
+        )
+        elapsed = int((datetime.now() - start).total_seconds())
+        mlflow.log_metric("elapsed_seconds", elapsed)
 
-    a_score = metrics.accuracy_score(y_test, y_pred)
-    c_matrix = metrics.confusion_matrix(y_test, y_pred)
-    c_report = metrics.classification_report(y_test, y_pred)
-
-    print("Accuracy Score:\n", a_score)
-    print("Confusion matrix:\n", c_matrix)
-    print("Classification Report:\n", c_report)
-
-    # Persist artifacts
-    # metrics.json
-    with open(os.path.join(out_dir, "metrics.json"), "w", encoding="utf-8") as f:
-        json.dump({
+        # ---- Evaluation ----
+        test_loss, test_acc = model.evaluate(X_test, y_test, verbose=0)
+        mlflow.log_metrics({
             "test_loss": float(test_loss),
             "test_accuracy": float(test_acc),
-            "elapsed_seconds": int(elapsed),
-            "epochs": int(args.epochs),
-            "batch_size": int(args.batch_size),
-            "lr": float(args.lr),
-            "val_split": float(args.val_split),
-        }, f, indent=2)
+        })
 
-    # classification_report.txt
-    with open(os.path.join(out_dir, "classification_report.txt"), "w", encoding="utf-8") as f:
-        f.write(c_report)
+        # ---- Predictions ----
+        y_pred_probs = model.predict(X_test, verbose=0)
+        y_pred = np.argmax(y_pred_probs, axis=1)
 
-    # confusion_matrix.json
-    with open(os.path.join(out_dir, "confusion_matrix.json"), "w", encoding="utf-8") as f:
-        json.dump(c_matrix.tolist(), f)
+        acc_score = metrics.accuracy_score(y_test, y_pred)
+        conf_matrix = metrics.confusion_matrix(y_test, y_pred)
+        class_report = metrics.classification_report(y_test, y_pred)
 
-    # predictions.npy (optional)
-    np.save(os.path.join(out_dir, "y_pred.npy"), y_pred)
+        # ---- Artifacts ----
+        curve_path = save_training_plots(history, out_dir)
+        mlflow.log_artifact(curve_path)
 
-    print(f"Done. Artifacts saved in: {out_dir}")
+        metrics_path = os.path.join(out_dir, "metrics.json")
+        with open(metrics_path, "w") as f:
+            json.dump({
+                "test_loss": float(test_loss),
+                "test_accuracy": float(test_acc),
+                "accuracy_score": float(acc_score),
+                "elapsed_seconds": elapsed,
+                "num_gpus": num_gpus,
+            }, f, indent=2)
+        mlflow.log_artifact(metrics_path)
 
+        report_path = os.path.join(out_dir, "classification_report.txt")
+        with open(report_path, "w") as f:
+            f.write(class_report)
+        mlflow.log_artifact(report_path)
 
-# ---------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------
+        cm_path = os.path.join(out_dir, "confusion_matrix.json")
+        with open(cm_path, "w") as f:
+            json.dump(conf_matrix.tolist(), f)
+        mlflow.log_artifact(cm_path)
+
+        # ---- Final model ----
+        # mlflow.tensorflow.log_model(
+        #     model,
+        #     name="model",
+        # )
+
+        print("Training complete. Artifacts logged to MLflow.")
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
@@ -205,5 +232,4 @@ def parse_args() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    train(args)
+    train(parse_args())
