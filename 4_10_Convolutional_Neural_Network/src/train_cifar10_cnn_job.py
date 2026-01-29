@@ -4,6 +4,10 @@ Train a CNN on CIFAR-10 for Azure ML jobs (non-interactive).
 - Saves: training curves, sample predictions grid, metrics.json
 - CPU / single-GPU / multi-GPU (MirroredStrategy)
 - MLflow tracking (Azure ML compatible)
+
+Usage:
+  python train_cifar10_cnn_job.py --epochs 100 --batch-size 128 --lr 1e-3 --dropout 0.5 --val-split 0.1 --augment --sample-count 25 --output-dir outputs
+
 """
 
 import os

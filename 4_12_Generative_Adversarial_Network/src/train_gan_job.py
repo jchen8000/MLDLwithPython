@@ -2,8 +2,8 @@
 """
 Train a GAN (MNIST) and save artifacts to ./outputs so Azure ML captures them.
 
-Usage (local):
-  python train_gan.py --epochs 50 --batch-size 512 --noise-dim 100 --save-interval 5
+Usage:
+  python train_gan_job.py --epochs 50 --batch-size 512 --noise-dim 100 --save-interval 5 --sample-count 25 --output-dir outputs
 
 Notes:
     - CPU / single-GPU / multi-GPU (MirroredStrategy)

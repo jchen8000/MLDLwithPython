@@ -2,6 +2,9 @@
 LeNet-5-style model on MNIST (28×28 grayscale), mirrored from the provided Jupyter cells,
 packaged as a non-interactive script for Azure ML command jobs.
 
+Usage:
+  python train_lenet5_cnn_job.py --epochs 100 --batch-size 128 --lr 1e-3 --val-split 0.1 --output-dir outputs --seed 0
+
 Key choices (matching notebook cells):
 - Input: MNIST, shape (28, 28, 1).
 - Normalization: Keras Rescaling(1./255).
