@@ -38,6 +38,12 @@ Open the desired code file in Google Colab or your preferred Jupyter environment
 
 Refer to the book for guidance on using the code examples.
 
+
+## Docker Image
+```
+docker pull jchen8000/tf_gpu_jupyterlab:latest
+```
+
 ## License
 
 The contents of this repository are licensed under GPL-3.0 License. See the LICENSE file for more details.
