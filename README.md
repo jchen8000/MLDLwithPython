@@ -7,13 +7,13 @@ This repository contains the source code and accompanying materials for the book
   <img alt="Machine Learning and Deep Learning with Python" src="https://github.com/jchen8000/MLDLwithPython/blob/main/images/MLDLwithPython.png" width="188" height="263">
 </picture>
 
-**Title: Machine Learning and Deep Learning with Python**
+## Title: Machine Learning and Deep Learning with Python
 
-**Subtitle: Use Python Jupyter to Implement Mathematical Concepts, Machine Learning Algorithms and Deep Learning Neural Networks**
+### Subtitle: Use Python Jupyter to Implement Mathematical Concepts, Machine Learning Algorithms and Deep Learning Neural Networks
 
 **Author: James Chen (LinkedIn: [linkedin.com/in/jchen8000](https://www.linkedin.com/in/jchen8000/))**
 
-Available at:
+**Available at:**
 
 ISBN: 978-1-7389084-2-4 (eBook), [Amazon Kindle](https://www.amazon.com/dp/B0BV42L2YJ), [Apple Books](http://books.apple.com/us/book/id6450843779),  [Google Play Books](https://play.google.com/store/books/details?id=JevIEAAAQBAJ), [Rakuten Kobo](https://www.kobo.com/ca/en/ebook/machine-learning-and-deep-learning-with-python-1)
 
