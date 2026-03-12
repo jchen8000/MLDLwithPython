@@ -17,9 +17,9 @@ Available at:
 
 ISBN: 978-1-7389084-2-4 (eBook), [Amazon Kindle](https://www.amazon.com/dp/B0BV42L2YJ), [Apple Books](http://books.apple.com/us/book/id6450843779),  [Google Play Books](https://play.google.com/store/books/details?id=JevIEAAAQBAJ), [Rakuten Kobo](https://www.kobo.com/ca/en/ebook/machine-learning-and-deep-learning-with-python-1)
 
-ISBN: 978-1-7389084-0-0 (Paperback), [Amazon](https://www.amazon.com/dp/1738908402)
+ISBN: 978-1-7389084-0-0 (Paperback), [Amazon](https://www.amazon.com/dp/1738908402), [Barnes & Noble](https://www.barnesandnoble.com/w/machine-learning-and-deep-learning-with-python-james-chen/1143154062?ean=9781738908400)
 
-ISBN: 978-1-7389084-1-7 (Hardcover), [Amazon](https://www.amazon.com/dp/1738908410)
+ISBN: 978-1-7389084-1-7 (Hardcover), [Amazon](https://www.amazon.com/dp/1738908410), [Barnes & Noble](https://www.barnesandnoble.com/w/machine-learning-and-deep-learning-with-python-james-chen/1143154062?ean=9781738908417)
 
 
 ## Book Overview
