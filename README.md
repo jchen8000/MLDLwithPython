@@ -1,6 +1,6 @@
 # Machine Learning and Deep Learning with Python
 
-This repository contains the source code and accompanying materials for the book "Machine Learning and Deep Learning with Python" by James Chen. This book is a comprehensive guide to understanding and implementing machine learning and deep learning techniques with Python. 
+This repository contains the source code and accompanying materials for the book ***Machine Learning and Deep Learning with Python*** by ***James Chen***. This book is a comprehensive guide to understanding and implementing machine learning and deep learning techniques with Python. 
 
 
 <picture>
@@ -25,7 +25,7 @@ ISBN: 978-1-7389084-1-7 (Hardcover), [Amazon](https://www.amazon.com/dp/17389084
 ## Book Overview
 Written with both beginners and experienced developers in mind, this book provides a thorough overview of the foundations of machine learning and deep learning, including mathematical fundamentals, optimization algorithms, and neural networks. Starting with the basics of Python programming, this book gradually builds up to more advanced topics, such as artificial neural networks, convolutional neural networks, and generative adversarial networks. Each chapter is filled with clear explanations, practical examples, and step-by-step tutorials that allow readers to gain a deep understanding of the underlying principles of machine learning and deep learning.
 
-Throughout the book, readers will also learn how to use popular Python libraries and packages, including numpy, pandas, scikit-learn, TensorFlow, and Keras, to build and train powerful machine learning and deep learning models for a variety of real-world applications, such as regression and classification, K-means, support vector machines, and recommender systems.
+Throughout the book, readers will also learn how to use popular Python libraries and packages, including `numpy`, `pandas`, `scikit-learn`, `TensorFlow`, and `Keras`, to build and train powerful machine learning and deep learning models for a variety of real-world applications, such as regression and classification, K-means, support vector machines, and recommender systems.
 
 Whether you are a seasoned data scientist or a beginner looking to enter the world of machine learning, this book is the ultimate resource for mastering these cutting-edge technologies and taking your skills to the next level. High-school level of mathematical knowledge and all levels (including entry-level) of programming skills are good to start, all Python codes are available at Github.com.
 
@@ -40,8 +40,22 @@ Refer to the book for guidance on using the code examples.
 
 
 ## Docker Image
+
+Run the following command to start a docker environment, it will take about 10GB disk space.
+
 ```
 docker pull jchen8000/tf_gpu_jupyterlab:latest
+
+docker run --gpus all -p 8888:8888 \
+  -v $(pwd):/tf/workspace \
+  -it --rm jchen8000/tf_gpu_jupyterlab:latest bash
+
+jupyter-lab --notebook-dir=/tf \
+            --ip 0.0.0.0 \
+            --no-browser \
+            --allow-root \
+            --port=8888 \
+            --NotebookApp.port_retries=0
 ```
 
 ## License
